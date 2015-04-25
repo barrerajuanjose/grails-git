@@ -1,54 +1,61 @@
 #!/usr/bin/env groovy
 
-
 def cli = new CliBuilder(
-        usage: 'deploy --dept department --app app [--serv serv, --scope scope] -v version\n',
+        usage: 'git-deploy --env environment [--tag tagName, --rollback true]\n',
         header: 'Available options (use -h for help):\n',
         footer: '\nby @bhaslop.\n'
 )
 
 cli.with {
     h(longOpt: 'help', 'Usage information', required: false)
-    d(longOpt: 'dept', 'Department', required: true, args: 1)
-    a(longOpt: 'app', 'Application', required: true, args: 1)
-    s(longOpt: 'serv', 'Service', required: true, args: 1)
-    c(longOpt: 'scope', 'Scope', required: false, args: 1)
-    v(longOpt: 'version', 'Build version', required: true, args: 1)
+    e(longOpt: 'env', 'Environment [test|prod]', required: true, args: 1)
+    t(longOpt: 'tag', 'Tag name for prod environment', required: false, args: 1)
+    r(longOpt: 'rollback', 'Rollback tagName', required: false, args: 1)
 }
 
 def opt = cli.parse(args)
 
-if( !opt ) return
+if (!opt) return
 
-if( opt.h ) {
+if (opt.h) {
     cli.usage()
     return
 }
 
+String env = opt.e
 
-def query = [
-        dept: opt.d,
-        app: opt.a,
-        serv: opt.s
-]
-
-if (this.args?.size() != 2) {
-    throw new RuntimeException('Faltan parametros ejemplo "uploadFile [prod|test|rollback] [tagName]"')
+if (!(env in ['test', 'prod'])) {
+    throw new RuntimeException('env should be "prod" or "test"')
 }
 
-String env = this.args[0]
+if (env == 'test') {
+    executeDeploy()
+} else {
+    String tagName = opt.t
+    Boolean rollback = opt.r as Boolean
 
-if(!(env in ['test', 'prod', 'rollback'])) {
-    throw new RuntimeException('env debe ser "prod" o "test"')
+    if(!tagName) {
+        throw new RuntimeException('tag name should not be empty')
+    }
+
+    if(rollback) {
+        if (!existsTag(tagName)) {
+            throw new RuntimeException('tag should exist for rollback')
+        }
+
+        executeDeploy()
+
+        return
+    }
+
+    if (existsTag(tagName)) {
+        throw new RuntimeException('tag was exist, do you want rollback?')
+    }
+
+    // if !rollback, el tag NO debe existir, crear tag, hacer deploy
+
+    return
 }
-
-String tagName = this.args[1]
-
-if(existsTag(tagName)) {
-    return 'NO SE CREO LA VERSION'
-}
-
-println 'legos'
 
 boolean existsTag(String tagName) {
     boolean existsTag = false
@@ -66,4 +73,10 @@ boolean existsTag(String tagName) {
     }
 
     existsTag
+}
+
+boolean executeDeploy() {
+    println '############'
+    println 'DEPLOY'
+    println '############'
 }
