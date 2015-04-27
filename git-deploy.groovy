@@ -27,7 +27,9 @@ if (!(e in ['test', 'prod'])) {
     throw new RuntimeException('env should be "prod" or "test"')
 }
 
-DeployService.doDeploy(e, opt.t, opt.r as Boolean)
+GitService.status()
+
+//DeployService.doDeploy(e, opt.t, opt.r as Boolean)
 
 class DeployService {
 
@@ -60,16 +62,23 @@ class DeployService {
 }
 
 class GitService {
-    static void createTag(String tagName) {
-        def executionCreateTag = ("git tag ${tagName}").execute()
 
-        executionCreateTag.waitFor()
+    static void status() {
+        def executionStatus = ("git status").execute()
+
+        executionStatus.waitFor()
+
+        String status = "${executionStatus.getInputStream()}"
+
+        println status
+    }
+
+    static void createTag(String tagName) {
+        ("git tag ${tagName}").execute().waitFor()
     }
 
     static void checkout(String tagName) {
-        def executionCreateTag = ("git checkout ${tagName}").execute()
-
-        executionCreateTag.waitFor()
+        ("git checkout ${tagName}").execute().waitFor()
     }
 
     static boolean existsTag(String tagName) {
