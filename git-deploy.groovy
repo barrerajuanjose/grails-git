@@ -2,8 +2,7 @@
 
 def cli = new CliBuilder(
         usage: 'git-deploy --env environment [--tag tagName, --rollback true]\n',
-        header: 'Available options (use -h for help):\n',
-        footer: '\nby @bhaslop.\n'
+        header: 'Available options (use -h for help):\n'
 )
 
 cli.with {
@@ -28,9 +27,7 @@ if (!(env in ['test', 'prod'])) {
     throw new RuntimeException('env should be "prod" or "test"')
 }
 
-if (env == 'test') {
-    executeDeploy()
-} else {
+if (env == 'prod')  {
     String tagName = opt.t
     Boolean rollback = opt.r as Boolean
 
@@ -38,23 +35,35 @@ if (env == 'test') {
         throw new RuntimeException('tag name should not be empty')
     }
 
+    boolean existsTag = existsTag(tagName)
+
     if(rollback) {
-        if (!existsTag(tagName)) {
+        if (!existsTag) {
             throw new RuntimeException('tag should exist for rollback')
         }
+    } else {
+        if (existsTag) {
+            throw new RuntimeException('tag was exist, do you want rollback?')
+        }
 
-        executeDeploy()
-
-        return
+        createTag(tagName)
     }
 
-    if (existsTag(tagName)) {
-        throw new RuntimeException('tag was exist, do you want rollback?')
-    }
+    checkout(tagName)
+}
 
-    // if !rollback, el tag NO debe existir, crear tag, hacer deploy
+executeDeploy(env)
 
-    return
+void createTag(String tagName) {
+    def executionCreateTag = ("git tag ${tagName}").execute()
+
+    executionCreateTag.waitFor()
+}
+
+void checkout(String tagName) {
+    def executionCreateTag = ("git checkout ${tagName}").execute()
+
+    executionCreateTag.waitFor()
 }
 
 boolean existsTag(String tagName) {
@@ -75,8 +84,8 @@ boolean existsTag(String tagName) {
     existsTag
 }
 
-boolean executeDeploy() {
+boolean executeDeploy(String env) {
     println '############'
-    println 'DEPLOY'
+    println "DEPLOY ${env}"
     println '############'
 }
