@@ -27,9 +27,9 @@ if (!(e in ['test', 'prod'])) {
     throw new RuntimeException('env should be "prod" or "test"')
 }
 
-GitService.status()
+DeployService.doDeploy(e, opt.t, opt.r as Boolean)
 
-//DeployService.doDeploy(e, opt.t, opt.r as Boolean)
+return
 
 class DeployService {
 
@@ -50,27 +50,45 @@ class DeployService {
                     throw new RuntimeException('tag was exist, do you want rollback?')
                 }
 
+                if (GitService.isEverythingToCommit()) {
+                    throw new RuntimeException('you should commit and push you branch')
+                }
+
                 GitService.createTag(tagName)
+
+                GitService.push(tagName)
             }
 
             GitService.checkout(tagName)
         }
 
         SwiftService.executeDeploy(env)
+
+        GitService.checkout(GitService.getCurrentBranch())
     }
 
 }
 
 class GitService {
 
-    static void status() {
+    static boolean isEverythingToCommit() {
         def executionStatus = ("git status").execute()
 
         executionStatus.waitFor()
 
-        String status = "${executionStatus.getInputStream()}"
+        !"${executionStatus.getInputStream()}".contains('nothing to commit')
+    }
 
-        println status
+    static String getCurrentBranch() {
+        def executionStatus = ('git status | grep "On branch"').execute()
+
+        executionStatus.waitFor()
+
+        "${executionStatus.getInputStream()}".split(' ')[-1]
+    }
+
+    static void push(String tagName) {
+        ("git push origin ${tagName}").execute().waitFor()
     }
 
     static void createTag(String tagName) {
@@ -90,9 +108,6 @@ class GitService {
         String existsTagName = "${executionExistsTagName.getInputStream()}"
 
         if (existsTagName != '') {
-            println "Ya existe un tag con el nombre ${tagName}"
-            println existsTagName
-
             existsTag = true
         }
 
