@@ -21,71 +21,80 @@ if (opt.h) {
     return
 }
 
-String env = opt.e
+String e = opt.e
 
-if (!(env in ['test', 'prod'])) {
+if (!(e in ['test', 'prod'])) {
     throw new RuntimeException('env should be "prod" or "test"')
 }
 
-if (env == 'prod')  {
-    String tagName = opt.t
-    Boolean rollback = opt.r as Boolean
+DeployService.doDeploy(e, opt.t, opt.r as Boolean)
 
-    if(!tagName) {
-        throw new RuntimeException('tag name should not be empty')
-    }
+class DeployService {
 
-    boolean existsTag = existsTag(tagName)
+    static void doDeploy(String env, String tagName, boolean rollback) {
+        if (env == 'prod') {
+            if (!tagName) {
+                throw new RuntimeException('tag name should not be empty')
+            }
 
-    if(rollback) {
-        if (!existsTag) {
-            throw new RuntimeException('tag should exist for rollback')
+            boolean existsTag = GitService.existsTag(tagName)
+
+            if (rollback) {
+                if (!existsTag) {
+                    throw new RuntimeException('tag should exist for rollback')
+                }
+            } else {
+                if (existsTag) {
+                    throw new RuntimeException('tag was exist, do you want rollback?')
+                }
+
+                GitService.createTag(tagName)
+            }
+
+            GitService.checkout(tagName)
         }
-    } else {
-        if (existsTag) {
-            throw new RuntimeException('tag was exist, do you want rollback?')
+
+        SwiftService.executeDeploy(env)
+    }
+
+}
+
+class GitService {
+    static void createTag(String tagName) {
+        def executionCreateTag = ("git tag ${tagName}").execute()
+
+        executionCreateTag.waitFor()
+    }
+
+    static void checkout(String tagName) {
+        def executionCreateTag = ("git checkout ${tagName}").execute()
+
+        executionCreateTag.waitFor()
+    }
+
+    static boolean existsTag(String tagName) {
+        boolean existsTag = false
+        def executionExistsTagName = ("git show ${tagName}").execute()
+
+        executionExistsTagName.waitFor()
+
+        String existsTagName = "${executionExistsTagName.getInputStream()}"
+
+        if (existsTagName != '') {
+            println "Ya existe un tag con el nombre ${tagName}"
+            println existsTagName
+
+            existsTag = true
         }
 
-        createTag(tagName)
+        existsTag
     }
-
-    checkout(tagName)
 }
 
-executeDeploy(env)
-
-void createTag(String tagName) {
-    def executionCreateTag = ("git tag ${tagName}").execute()
-
-    executionCreateTag.waitFor()
-}
-
-void checkout(String tagName) {
-    def executionCreateTag = ("git checkout ${tagName}").execute()
-
-    executionCreateTag.waitFor()
-}
-
-boolean existsTag(String tagName) {
-    boolean existsTag = false
-    def executionExistsTagName = ("git show ${tagName}").execute()
-
-    executionExistsTagName.waitFor()
-
-    String existsTagName = "${executionExistsTagName.getInputStream()}"
-
-    if (existsTagName != '') {
-        println "Ya existe un tag con el nombre ${tagName}"
-        println existsTagName
-
-        existsTag = true
+class SwiftService {
+    static boolean executeDeploy(String env) {
+        println '############'
+        println "DEPLOY ${env}"
+        println '############'
     }
-
-    existsTag
-}
-
-boolean executeDeploy(String env) {
-    println '############'
-    println "DEPLOY ${env}"
-    println '############'
 }
