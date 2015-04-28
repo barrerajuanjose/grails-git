@@ -1,5 +1,9 @@
 #!/usr/bin/env groovy
 
+import services.DeployService
+import services.GitService
+import services.SwiftService
+
 def cli = new CliBuilder(
         usage: 'git-deploy --env environment [--tag tagName, --rollback true]\n',
         header: 'Available options (use -h for help):\n'
@@ -30,99 +34,3 @@ if (!(e in ['test', 'prod'])) {
 DeployService.doDeploy(e, opt.t, opt.r as Boolean)
 
 return
-
-class DeployService {
-
-    static void doDeploy(String env, String tagName, boolean rollback) {
-        if (env == 'prod') {
-            if (!tagName) {
-                throw new RuntimeException('tag name should not be empty')
-            }
-
-            boolean existsTag = GitService.existsTag(tagName)
-
-            if (rollback) {
-                if (!existsTag) {
-                    throw new RuntimeException('tag should exist for rollback')
-                }
-            } else {
-                if (existsTag) {
-                    throw new RuntimeException('tag was exist, do you want rollback?')
-                }
-
-                if (GitService.isEverythingToCommit()) {
-                    throw new RuntimeException('you should commit and push you branch')
-                }
-
-                GitService.createTag(tagName)
-
-                GitService.push(tagName)
-            }
-
-            GitService.checkout(tagName)
-        }
-
-        SwiftService.executeDeploy(env)
-
-        GitService.checkout(GitService.getCurrentBranch())
-    }
-
-}
-
-class GitService {
-
-    static boolean isEverythingToCommit() {
-        def executionStatus = ("git status").execute()
-
-        executionStatus.waitFor()
-
-        String status = "${executionStatus.getInputStream()}"
-
-        !status.contains('nothing to commit') ||
-                status.contains('ahead') ||
-                status.contains('behind')
-    }
-
-    static String getCurrentBranch() {
-        def executionStatus = ('git branch').execute()
-
-        executionStatus.waitFor()
-
-        "${executionStatus.getInputStream()}".split(' ')[-1]
-    }
-
-    static void push(String tagName) {
-        ("git push origin ${tagName}").execute().waitFor()
-    }
-
-    static void createTag(String tagName) {
-        ("git tag ${tagName}").execute().waitFor()
-    }
-
-    static void checkout(String tagName) {
-        ("git checkout ${tagName}").execute().waitFor()
-    }
-
-    static boolean existsTag(String tagName) {
-        boolean existsTag = false
-        def executionExistsTagName = ("git show ${tagName}").execute()
-
-        executionExistsTagName.waitFor()
-
-        String existsTagName = "${executionExistsTagName.getInputStream()}"
-
-        if (existsTagName != '') {
-            existsTag = true
-        }
-
-        existsTag
-    }
-}
-
-class SwiftService {
-    static boolean executeDeploy(String env) {
-        println '############'
-        println "DEPLOY ${env}"
-        println '############'
-    }
-}
