@@ -15,11 +15,11 @@ class GitService {
     }
 
     static String getCurrentBranch() {
-        def executionStatus = ('git branch').execute()
+        def executionStatus = ('git rev-parse --abbrev-ref HEAD').execute()
 
         executionStatus.waitFor()
 
-        "${executionStatus.getInputStream()}".split(' ')[-1]
+        executionStatus.getText()
     }
 
     static void push(String tagName) {
