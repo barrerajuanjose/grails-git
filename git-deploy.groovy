@@ -76,11 +76,15 @@ class GitService {
 
         executionStatus.waitFor()
 
-        !"${executionStatus.getInputStream()}".contains('nothing to commit')
+        String status = "${executionStatus.getInputStream()}"
+
+        !status.contains('nothing to commit') ||
+                status.contains('ahead') ||
+                status.contains('behind')
     }
 
     static String getCurrentBranch() {
-        def executionStatus = ('git status | grep "On branch"').execute()
+        def executionStatus = ('git branch').execute()
 
         executionStatus.waitFor()
 
